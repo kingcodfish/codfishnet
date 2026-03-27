@@ -18,6 +18,9 @@ def _load_env():
 
 _load_env()
 
+# ── Ensure runtime directories exist ─────────────────────────────────────────
+os.makedirs("private", exist_ok=True)
+
 app = FastAPI(title="CODFISHNET TERMINAL")
 
 # ── Config ────────────────────────────────────────────────────────────────────
