@@ -148,6 +148,24 @@
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
+        /* ── Footer links ─────────────────────────────────────────────── */
+        .footer-links {
+            margin-top: 1.75rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        .footer-link {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            font-size: 0.6rem; letter-spacing: 0.15em; color: var(--g4);
+            border: 1px solid #00ff4115; padding: 0.35rem 0.75rem;
+            text-decoration: none; transition: color 0.15s, border-color 0.15s;
+            font-family: 'Fira Code', monospace;
+        }
+        .footer-link:hover {
+            color: var(--g);
+            border-color: #00ff4130;
+        }
+
         /* ── UNLOCK flash ─────────────────────────────────────────────── */
         .unlock-flash {
             position: absolute; inset: 0;
@@ -262,15 +280,14 @@
 
                 <div style="margin-top:1.5rem;" class="bcursor"></div>
 
-                <a href="/download/cli" download="codfishnet_cli.py"
-                   style="margin-top:1.75rem;display:inline-flex;align-items:center;gap:0.4rem;
-                          font-size:0.6rem;letter-spacing:0.15em;color:var(--g4);
-                          border:1px solid #00ff4115;padding:0.35rem 0.75rem;
-                          text-decoration:none;transition:color 0.15s,border-color 0.15s;"
-                   onmouseover="this.style.color='var(--g)';this.style.borderColor='#00ff4130';"
-                   onmouseout="this.style.color='var(--g4)';this.style.borderColor='#00ff4115';">
-                    ↓ DOWNLOAD CLI
-                </a>
+                <div class="footer-links">
+                    <a href="/download/cli" download="codfishnet_cli.py" class="footer-link">
+                        ↓ DOWNLOAD CLI
+                    </a>
+                    <a href="/admin" class="footer-link">
+                        ⬡ ADMIN PANEL
+                    </a>
+                </div>
             </div>
 
             <!-- CHAT -->
