@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CODFISHNET // NODE-47</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --g:    #00ff41;
+            --g2:   #00cc33;
+            --g3:   #007a1f;
+            --g4:   #003d0f;
+            --red:  #ff3333;
+            --yel:  #ffaa00;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #030503;
+            font-family: 'Fira Code', monospace;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background-image: radial-gradient(ellipse at 50% 50%, #001a0522 0%, transparent 70%);
+        }
+
+        /* ── Terminal shell ─────────────────────────────────────────── */
+        .terminal {
+            width: 100%;
+            max-width: 56rem;
+            height: 660px;
+            background: #010801;
+            border: 1px solid #00ff4118;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px #00ff4108,
+                0 0 40px #00ff4115,
+                0 0 100px #00ff410a,
+                inset 0 0 80px #00ff4106;
+        }
+
+        /* Scanlines */
+        .terminal::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent 0px, transparent 3px,
+                rgba(0,0,0,0.13) 3px, rgba(0,0,0,0.13) 4px
+            );
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Vignette */
+        .terminal::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
+            pointer-events: none;
+            z-index: 51;
+        }
+
+        /* ── Chrome bar ─────────────────────────────────────────────── */
+        .chrome {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px;
+            border-bottom: 1px solid #00ff4110;
+            background: rgba(0,0,0,0.5);
+            flex-shrink: 0; z-index: 60; position: relative;
+        }
+        .dot { width: 11px; height: 11px; border-radius: 50%; }
+
+        /* ── Content ─────────────────────────────────────────────────── */
+        .content {
+            flex: 1; padding: 1.5rem 2rem;
+            display: flex; flex-direction: column;
+            overflow: hidden; position: relative; z-index: 10;
+        }
+
+        /* ── ACCESS DENIED ───────────────────────────────────────────── */
+        #denied {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center;
+            transition: opacity 0.6s ease;
+        }
+        #denied.fading { opacity: 0; pointer-events: none; }
+
+        .denied-text {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 700; letter-spacing: 0.2em;
+            color: var(--red);
+            text-shadow: 0 0 8px #ff000099, 0 0 25px #ff000055, 0 0 60px #ff000022;
+            animation: flicker 7s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 89%, 91%, 93%, 100% { opacity: 1; }
+            90% { opacity: 0.7; } 92% { opacity: 0.9; }
+        }
+
+        .code-box {
+            margin-top: 2rem;
+            border: 1px solid #ffaa0055;
+            background: rgba(255,170,0,0.03);
+            padding: 1.25rem 1.5rem; text-align: left; min-width: 280px;
+            box-shadow: 0 0 20px rgba(255,170,0,0.08), inset 0 0 20px rgba(255,170,0,0.02);
+        }
+        .code-label { font-size: 0.65rem; color: #ffaa0077; letter-spacing: 0.15em; margin-bottom: 0.4rem; }
+        .code-value {
+            font-size: 2rem; font-weight: 700; letter-spacing: 0.35em;
+            color: var(--yel); text-shadow: 0 0 12px #ffaa0055;
+        }
+        .code-sub { font-size: 0.65rem; color: #ffaa0044; margin-top: 0.4rem; }
+
+        /* Waiting pulse — shown while pending WS is open */
+        .waiting-indicator {
+            margin-top: 1.5rem;
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.65rem; color: var(--g4); letter-spacing: 0.12em;
+        }
+        .waiting-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--g4); animation: wpulse 1.4s ease-in-out infinite;
+        }
+        .waiting-dot:nth-child(2) { animation-delay: 0.2s; }
+        .waiting-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes wpulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+        .hint {
+            margin-top: 1.25rem;
+            font-size: 0.7rem; color: var(--g4);
+            letter-spacing: 0.08em; line-height: 1.8;
+        }
+        .hint em { color: var(--g3); font-style: normal; }
+
+        .bcursor::after {
+            content: '█'; color: var(--g3);
+            animation: blink 1.1s step-end infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ── UNLOCK flash ─────────────────────────────────────────────── */
+        .unlock-flash {
+            position: absolute; inset: 0;
+            background: var(--g);
+            opacity: 0; pointer-events: none;
+            z-index: 100;
+            animation: none;
+        }
+        .unlock-flash.go {
+            animation: flash 0.45s ease-out forwards;
+        }
+        @keyframes flash {
+            0%   { opacity: 0.35; }
+            100% { opacity: 0; }
+        }
+
+        /* ── CHAT view ───────────────────────────────────────────────── */
+        #chat {
+            flex: 1; display: none; flex-direction: column;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        #chat.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        .chat-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-bottom: 0.75rem; margin-bottom: 0.75rem;
+            border-bottom: 1px solid #00ff4115;
+            font-size: 0.65rem; color: var(--g3); letter-spacing: 0.12em; flex-shrink: 0;
+        }
+
+        .status-indicator { display: flex; align-items: center; gap: 6px; }
+        .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--g); box-shadow: 0 0 6px var(--g);
+            animation: spulse 2.5s infinite;
+        }
+        @keyframes spulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        #messages {
+            flex: 1; overflow-y: auto; padding-right: 0.5rem;
+            font-size: 0.8rem; line-height: 1.6;
+        }
+        #messages::-webkit-scrollbar { width: 3px; }
+        #messages::-webkit-scrollbar-thumb { background: #00ff4120; }
+
+        .msg { padding: 2px 0; }
+        .msg-time   { color: var(--g3); }
+        .msg-sender { color: var(--g); font-weight: 600; }
+        .msg-arrow  { color: var(--g4); }
+        .msg-text   { color: #b0ffbe; }
+        .msg-system { font-size: 0.7rem; color: var(--g4); font-style: italic; padding: 4px 0; }
+        .msg-divider { font-size: 0.65rem; color: var(--g4); text-align: center; padding: 6px 0 2px; letter-spacing: 0.1em; }
+
+        .chat-footer {
+            flex-shrink: 0; margin-top: 0.75rem; padding-top: 0.75rem;
+            border-top: 1px solid #00ff4110;
+            display: flex; justify-content: space-between;
+            font-size: 0.65rem; color: var(--g4); letter-spacing: 0.08em;
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+
+        <!-- Chrome -->
+        <div class="chrome">
+            <div class="dot" style="background:#3a0a0a;border:1px solid #6b1010;"></div>
+            <div class="dot" style="background:#3a2a0a;border:1px solid #6b4a10;"></div>
+            <div class="dot" style="background:#0a2a0a;border:1px solid #104a10;"></div>
+            <span style="font-size:0.6rem;color:#00ff4120;margin-left:8px;letter-spacing:0.15em;">
+                CODFISHNET // SECURE RELAY // NODE-47
+            </span>
+        </div>
+
+        <!-- Unlock flash overlay -->
+        <div class="unlock-flash" id="unlockFlash"></div>
+
+        <!-- Content -->
+        <div class="content">
+
+            <!-- ACCESS DENIED -->
+            <div id="denied">
+                <div style="font-size:0.65rem;color:var(--g4);letter-spacing:0.2em;margin-bottom:1.5rem;">
+                    [ CODFISHNET TERMINAL v0.8 // ENCRYPTION ACTIVE ]
+                </div>
+
+                <div class="denied-text">ACCESS DENIED</div>
+
+                <div style="font-size:0.7rem;color:#ff222233;margin-top:0.4rem;letter-spacing:0.12em;">
+                    UNAUTHORIZED INTRUSION DETECTED // NODE-47 LOCKED
+                </div>
+
+                <div class="code-box">
+                    <div class="code-label">// ACTIVE JOIN CODE</div>
+                    <div id="joinCode" class="code-value">------</div>
+                    <div id="codeExpiry" class="code-sub">Requesting code...</div>
+                </div>
+
+                <!-- Animated dots while waiting for CLI auth -->
+                <div class="waiting-indicator" id="waitingIndicator" style="display:none;">
+                    <div class="waiting-dot"></div>
+                    <div class="waiting-dot"></div>
+                    <div class="waiting-dot"></div>
+                    <span>WAITING FOR AUTHENTICATION</span>
+                </div>
+
+                <div class="hint" id="hint">
+                    AUTHENTICATE VIA CLI<br>
+                    <em>login &lt;join-code&gt; &lt;api-key&gt;</em>
+                </div>
+
+                <div style="margin-top:1.5rem;" class="bcursor"></div>
+
+                <a href="/download/cli" download="codfishnet_cli.py"
+                   style="margin-top:1.75rem;display:inline-flex;align-items:center;gap:0.4rem;
+                          font-size:0.6rem;letter-spacing:0.15em;color:var(--g4);
+                          border:1px solid #00ff4115;padding:0.35rem 0.75rem;
+                          text-decoration:none;transition:color 0.15s,border-color 0.15s;"
+                   onmouseover="this.style.color='var(--g)';this.style.borderColor='#00ff4130';"
+                   onmouseout="this.style.color='var(--g4)';this.style.borderColor='#00ff4115';">
+                    ↓ DOWNLOAD CLI
+                </a>
+            </div>
+
+            <!-- CHAT -->
+            <div id="chat">
+                <div class="chat-header">
+                    <span>CODFISHNET RELAY // NODE-47 // LIVE FEED</span>
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">CONNECTING</span>
+                    </div>
+                </div>
+
+                <div id="messages"></div>
+
+                <div class="chat-footer">
+                    <span>MESSAGES SENT VIA CLI ONLY</span>
+                    <span id="msgCount">0 messages</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ── Helpers ──────────────────────────────────────────────────────────
+        function esc(s) {
+            return String(s)
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;');
+        }
+
+        let msgCount = 0;
+
+        function appendMsg(msg) {
+            const el  = document.getElementById('messages');
+            const div = document.createElement('div');
+
+            if (msg.type === 'system') {
+                div.className = 'msg msg-system';
+                div.innerHTML = `<span class="msg-time">[${esc(msg.time)}]</span> ── ${esc(msg.text)} ──`;
+            } else if (msg.type === 'message') {
+                div.className = 'msg';
+                div.innerHTML =
+                    `<span class="msg-time">[${esc(msg.time)}]</span> ` +
+                    `<span class="msg-sender">${esc(msg.sender)}</span>` +
+                    `<span class="msg-arrow"> ▶ </span>` +
+                    `<span class="msg-text">${esc(msg.text)}</span>`;
+                msgCount++;
+                document.getElementById('msgCount').textContent =
+                    `${msgCount} message${msgCount !== 1 ? 's' : ''}`;
+            }
+
+            el.appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function setStatus(text, ok = true) {
+            document.getElementById('statusText').textContent = text;
+            const dot = document.getElementById('statusDot');
+            if (!ok) {
+                dot.style.background = '#ff4444';
+                dot.style.boxShadow  = '0 0 6px #ff4444';
+                dot.style.animation  = 'none';
+            }
+        }
+
+        // ── Join code + countdown ────────────────────────────────────────────
+        let currentCode = null;
+        let countdownTimer = null;
+
+        async function loadJoinCode() {
+            try {
+                const res  = await fetch('/get_join_code');
+                const data = await res.json();
+                currentCode = data.join_code;
+
+                document.getElementById('joinCode').textContent = currentCode;
+                startCountdown(data.expires_in ?? 900);
+                openPendingSocket(currentCode);
+
+            } catch {
+                document.getElementById('joinCode').textContent = 'ERROR';
+                document.getElementById('codeExpiry').textContent = 'Could not reach server';
+            }
+        }
+
+        function startCountdown(seconds) {
+            clearInterval(countdownTimer);
+            let remaining = seconds;
+            const expEl = document.getElementById('codeExpiry');
+
+            countdownTimer = setInterval(() => {
+                if (remaining <= 0) {
+                    clearInterval(countdownTimer);
+                    expEl.textContent = 'Expired — refreshing...';
+                    loadJoinCode();
+                    return;
+                }
+                const m = Math.floor(remaining / 60);
+                const s = String(remaining % 60).padStart(2, '0');
+                expEl.textContent = `Expires in ${m}:${s}`;
+                remaining--;
+            }, 1000);
+        }
+
+        // ── Pending WebSocket — listens for CLI auth ──────────────────────────
+        function openPendingSocket(code) {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws/pending?code=${code}`);
+
+            ws.onopen = () => {
+                // Show the "waiting for auth" indicator
+                document.getElementById('waitingIndicator').style.display = 'flex';
+                document.getElementById('hint').style.display = 'none';
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'auth') {
+                    ws.close();
+                    unlockPage(msg.key);
+                }
+            };
+
+            ws.onclose = (e) => {
+                // 4002 = expired/revoked by server; get a fresh code
+                if (e.code === 4002) {
+                    document.getElementById('waitingIndicator').style.display = 'none';
+                    document.getElementById('hint').style.display = '';
+                    loadJoinCode();
+                }
+            };
+
+            ws.onerror = () => {
+                document.getElementById('waitingIndicator').style.display = 'none';
+                document.getElementById('hint').style.display = '';
+            };
+        }
+
+        // ── Page unlock ───────────────────────────────────────────────────────
+        function unlockPage(key) {
+            clearInterval(countdownTimer);
+
+            // Flash the screen green
+            const flash = document.getElementById('unlockFlash');
+            flash.classList.add('go');
+
+            // Fade out the denied screen
+            const denied = document.getElementById('denied');
+            denied.classList.add('fading');
+
+            setTimeout(() => {
+                denied.style.display = 'none';
+                document.getElementById('chat').classList.add('active');
+                connectChatSocket(key);
+            }, 450);
+        }
+
+        // ── Session-ended reconnect screen ───────────────────────────────────
+        function showReconnect(joinCode, reason) {
+            document.getElementById('chat').classList.remove('active');
+
+            const denied = document.getElementById('denied');
+            const title  = denied.querySelector('.denied-text');
+            title.textContent   = 'SESSION ENDED';
+            title.style.color       = 'var(--yel)';
+            title.style.textShadow  = '0 0 8px #ffaa0099, 0 0 25px #ffaa0055, 0 0 60px #ffaa0022';
+
+            const subLine = denied.querySelectorAll('div')[1];
+            const reasonMap = {
+                kicked:     'DISCONNECTED BY ADMIN',
+                revoked:    'ACCESS REVOKED BY ADMIN',
+                expired:    'SESSION EXPIRED',
+                timeout:    'CLI CONNECTION LOST',
+                logged_out: 'CLI DISCONNECTED',
+            };
+            subLine.textContent = reasonMap[reason] || 'CONNECTION CLOSED';
+            subLine.style.color = 'var(--yel)';
+
+            const hint = document.getElementById('hint');
+            if (joinCode) {
+                document.getElementById('joinCode').textContent = joinCode;
+                document.getElementById('codeExpiry').textContent = 'Use this code to reconnect via CLI';
+                hint.innerHTML = 'RECONNECT VIA CLI<br><em>login &lt;join-code&gt; &lt;api-key&gt;</em>';
+                hint.style.display = '';
+                document.getElementById('waitingIndicator').style.display = 'none';
+                startCountdown(900);
+                openPendingSocket(joinCode);
+            } else {
+                document.getElementById('joinCode').textContent = '------';
+                document.getElementById('codeExpiry').textContent = 'Contact admin for access';
+                hint.style.display = 'none';
+                document.getElementById('waitingIndicator').style.display = 'none';
+            }
+
+            denied.style.display = 'flex';
+            denied.style.opacity = '1';
+            denied.classList.remove('fading');
+        }
+
+        // ── Live chat WebSocket ───────────────────────────────────────────────
+        function connectChatSocket(key) {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}/ws?key=${key}`);
+
+            let pendingDisconnect = null;
+
+            ws.onopen = () => setStatus('CONNECTED');
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === 'disconnected') {
+                    // Store the reconnect payload; onclose will display it
+                    pendingDisconnect = msg;
+                    return;
+                }
+                if (msg.type === 'history') {
+                    if (msg.messages && msg.messages.length > 0) {
+                        msg.messages.forEach(m => appendMsg(m));
+                        const divider = document.createElement('div');
+                        divider.className = 'msg-divider';
+                        divider.textContent = '── live feed below ──';
+                        document.getElementById('messages').appendChild(divider);
+                        divider.scrollIntoView({ behavior: 'smooth' });
+                    }
+                } else {
+                    appendMsg(msg);
+                }
+            };
+
+            ws.onclose = () => {
+                if (pendingDisconnect) {
+                    showReconnect(pendingDisconnect.join_code || null, pendingDisconnect.reason);
+                } else {
+                    setStatus('DISCONNECTED', false);
+                }
+            };
+
+            ws.onerror = () => setStatus('CONNECTION ERROR', false);
+        }
+
+        // ── Boot ──────────────────────────────────────────────────────────────
+        loadJoinCode();
+    </script>
+</body>
+</html>

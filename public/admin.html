@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CODFISHNET ADMIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --g:    #00ff41;
+            --g2:   #00cc33;
+            --g3:   #007a1f;
+            --g4:   #003d0f;
+            --red:  #ff4444;
+            --yel:  #ffaa00;
+            --bg:   #010801;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #030503;
+            font-family: 'Fira Code', monospace;
+            color: var(--g);
+            min-height: 100vh;
+        }
+
+        #lockScreen {
+            position: fixed; inset: 0; background: #030503; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        #lockScreen.hidden { display: none; }
+
+        #panel { display: none; padding: 1.5rem 2rem; max-width: 72rem; margin: 0 auto; }
+        #panel.visible { display: block; }
+
+        .card {
+            background: var(--bg);
+            border: 1px solid #00ff4118;
+            border-radius: 2px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: #00ff4130; }
+
+        .section-label {
+            font-size: 0.6rem; color: var(--g3);
+            letter-spacing: 0.2em; margin-bottom: 1rem;
+        }
+
+        input[type="text"], input[type="password"] {
+            background: #000; color: var(--g);
+            border: 1px solid #00ff4130; border-radius: 1px;
+            outline: none; font-family: 'Fira Code', monospace;
+            font-size: 0.8rem; padding: 0.5rem 0.75rem;
+            transition: border-color 0.15s, box-shadow 0.15s; width: 100%;
+        }
+        input::placeholder { color: #00ff4125; }
+        input:focus { border-color: #00ff4155; box-shadow: 0 0 10px #00ff4115; }
+
+        button {
+            font-family: 'Fira Code', monospace; font-size: 0.7rem;
+            letter-spacing: 0.12em; cursor: pointer; border-radius: 1px;
+            transition: all 0.15s; border: 1px solid transparent;
+            padding: 0.4rem 0.85rem;
+        }
+        .btn-green  { background: #00ff4115; border-color: #00ff4140; color: var(--g); }
+        .btn-green:hover  { background: #00ff4125; border-color: var(--g); }
+        .btn-red    { background: #ff444415; border-color: #ff444440; color: var(--red); }
+        .btn-red:hover    { background: #ff444425; border-color: var(--red); }
+        .btn-yellow { background: #ffaa0015; border-color: #ffaa0040; color: var(--yel); }
+        .btn-yellow:hover { background: #ffaa0025; border-color: var(--yel); }
+        .btn-ghost  { background: transparent; border-color: #00ff4120; color: var(--g3); }
+        .btn-ghost:hover  { border-color: #00ff4140; color: var(--g); }
+
+        .stat-value { font-size: 2.25rem; font-weight: 700; line-height: 1; }
+
+        .row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.5rem 0; border-bottom: 1px solid #00ff4108;
+            font-size: 0.75rem; gap: 0.75rem;
+        }
+        .row:last-child { border-bottom: none; }
+
+        .online-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .online-dot.on  { background: var(--g); box-shadow: 0 0 5px var(--g); animation: pulse 2s infinite; }
+        .online-dot.off { background: #00ff4120; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        #toast {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            font-size: 0.7rem; letter-spacing: 0.1em;
+            padding: 0.6rem 1rem; border: 1px solid #00ff4140;
+            background: var(--bg); color: var(--g);
+            z-index: 300; opacity: 0; transform: translateY(6px);
+            transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #00ff4115; }
+        ::-webkit-scrollbar-thumb:hover { background: #00ff4130; }
+    </style>
+</head>
+<body>
+
+<!-- Lock screen -->
+<div id="lockScreen">
+    <div style="text-align:center;">
+        <div style="font-size:1.8rem;font-weight:700;letter-spacing:0.3em;color:var(--g);
+                    text-shadow:0 0 20px #00ff4155;margin-bottom:0.25rem;">
+            CODFISHNET
+        </div>
+        <div style="font-size:0.6rem;color:var(--g4);letter-spacing:0.25em;margin-bottom:2.5rem;">
+            ADMIN CONTROL PANEL // AUTHENTICATION REQUIRED
+        </div>
+        <div style="display:flex;gap:0.5rem;max-width:360px;margin:0 auto;">
+            <input id="secretInput" type="password" placeholder="Enter admin secret..." style="flex:1;">
+            <button class="btn-green" onclick="unlock()" style="white-space:nowrap;padding:0.5rem 1rem;">
+                UNLOCK
+            </button>
+        </div>
+        <div id="lockError" style="font-size:0.7rem;color:var(--red);margin-top:0.75rem;height:1rem;"></div>
+    </div>
+</div>
+
+<!-- Main panel -->
+<div id="panel">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:1.25rem 0 1.5rem;border-bottom:1px solid #00ff4110;margin-bottom:1.5rem;">
+        <div>
+            <div style="font-size:1.1rem;font-weight:700;letter-spacing:0.25em;">CODFISHNET ADMIN</div>
+            <div style="font-size:0.6rem;color:var(--g4);letter-spacing:0.15em;margin-top:0.2rem;">
+                NODE-47 // CONTROL INTERFACE
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+            <span id="lastRefresh" style="font-size:0.6rem;color:var(--g4);"></span>
+            <button class="btn-ghost" onclick="refreshAll()">↻ REFRESH</button>
+            <button class="btn-red" onclick="doLogout()">LOCK</button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem;">
+        <div class="card" style="padding:1rem 1.25rem;">
+            <div class="section-label">ONLINE USERS</div>
+            <div class="stat-value" id="statOnline" style="color:var(--g);">–</div>
+        </div>
+        <div class="card" style="padding:1rem 1.25rem;">
+            <div class="section-label">ACTIVE JOIN CODES</div>
+            <div class="stat-value" id="statCodes" style="color:var(--yel);">–</div>
+        </div>
+        <div class="card" style="padding:1rem 1.25rem;">
+            <div class="section-label">API KEYS</div>
+            <div class="stat-value" id="statKeys" style="color:var(--g);">–</div>
+        </div>
+    </div>
+
+    <!-- Generate + online -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="card" style="padding:1.25rem;">
+            <div class="section-label">// GENERATE API KEY</div>
+            <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+                <input id="newUsername" type="text" placeholder="username">
+                <button class="btn-green" onclick="generateKey()" style="white-space:nowrap;flex-shrink:0;">GENERATE</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;">
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.65rem;color:var(--g3);cursor:pointer;">
+                    <input type="checkbox" id="oneTimeUse" style="width:auto;accent-color:var(--yel);">
+                    ONE-TIME
+                </label>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.65rem;color:var(--g3);">
+                    EXPIRES
+                    <input type="datetime-local" id="expiresAt"
+                           style="width:auto;font-size:0.65rem;padding:0.25rem 0.4rem;color:var(--g3);border-color:#00ff4120;">
+                </label>
+            </div>
+            <div id="newKeyResult" style="font-size:0.7rem;color:var(--g3);word-break:break-all;min-height:2.5rem;"></div>
+        </div>
+        <div class="card" style="padding:1.25rem;">
+            <div class="section-label">// ONLINE NOW</div>
+            <div id="onlineList" style="font-size:0.75rem;color:var(--g4);">No users connected.</div>
+        </div>
+    </div>
+
+    <!-- Join codes + history -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div class="card" style="padding:1.25rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <div class="section-label" style="margin:0;">// ACTIVE JOIN CODES</div>
+                <button class="btn-yellow" onclick="createJoinCode()" style="font-size:0.65rem;padding:0.3rem 0.7rem;">+ CREATE</button>
+            </div>
+            <div id="joinCodeList" style="font-size:0.72rem;color:var(--g4);">No active codes.</div>
+        </div>
+        <div class="card" style="padding:1.25rem;">
+            <div class="section-label">// CHAT HISTORY</div>
+            <div id="historyInfo" style="font-size:0.72rem;color:var(--g3);margin-bottom:1rem;line-height:1.6;">Loading...</div>
+            <button class="btn-red" onclick="clearHistory()" style="font-size:0.65rem;">⚠ CLEAR HISTORY</button>
+        </div>
+    </div>
+
+    <!-- All keys -->
+    <div class="card" style="padding:1.25rem;margin-bottom:2rem;">
+        <div class="section-label">// ALL API KEYS</div>
+        <div id="keyList" style="font-size:0.72rem;"><div style="color:var(--g4);">Loading...</div></div>
+    </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+    let adminSecret = '';
+
+    function hdrs() {
+        return { 'Content-Type': 'application/json', 'X-Admin-Secret': adminSecret };
+    }
+
+    let toastTimer = null;
+    function toast(msg, color = 'var(--g)') {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.style.color = color;
+        el.style.borderColor = color + '44';
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    function esc(s) {
+        return String(s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function unlock() {
+        const secret = document.getElementById('secretInput').value;
+        if (!secret) { document.getElementById('lockError').textContent = 'Enter the admin secret.'; return; }
+        document.getElementById('lockError').textContent = 'Verifying...';
+        try {
+            const res = await fetch('/list_keys', { headers: { 'X-Admin-Secret': secret } });
+            if (res.status === 403) { document.getElementById('lockError').textContent = 'Access denied — wrong secret.'; return; }
+            adminSecret = secret;
+            document.getElementById('lockScreen').classList.add('hidden');
+            document.getElementById('panel').classList.add('visible');
+            await refreshAll();
+            setInterval(refreshAll, 15_000);
+        } catch {
+            document.getElementById('lockError').textContent = 'Connection error. Is the server running?';
+        }
+    }
+
+    function doLogout() {
+        adminSecret = '';
+        document.getElementById('secretInput').value = '';
+        document.getElementById('lockError').textContent = '';
+        document.getElementById('lockScreen').classList.remove('hidden');
+        document.getElementById('panel').classList.remove('visible');
+    }
+
+    document.getElementById('secretInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+
+    async function refreshAll() {
+        await Promise.all([refreshKeys(), refreshSessions(), refreshHistory()]);
+        document.getElementById('lastRefresh').textContent = 'Refreshed ' + new Date().toLocaleTimeString();
+    }
+
+    async function refreshKeys() {
+        const res  = await fetch('/list_keys', { headers: hdrs() });
+        const data = await res.json();
+        const keys = data.keys || [];
+        document.getElementById('statKeys').textContent = keys.length;
+        if (!keys.length) {
+            document.getElementById('keyList').innerHTML = '<div style="color:var(--g4);">No keys generated yet.</div>';
+            return;
+        }
+        document.getElementById('keyList').innerHTML = keys.map(k => {
+            const otBadge  = k.one_time_use
+                ? '<span style="font-size:0.6rem;color:var(--yel);border:1px solid #ffaa0040;padding:0 0.3rem;border-radius:1px;">[1×]</span>'
+                : '';
+            const expBadge = k.expires_at
+                ? `<span style="font-size:0.6rem;color:var(--g3);border:1px solid #00ff4120;padding:0 0.3rem;border-radius:1px;">[EXP: ${esc(new Date(k.expires_at).toLocaleString())}]</span>`
+                : '';
+            return `<div class="row">
+                <div style="display:flex;align-items:center;gap:0.6rem;flex:1;min-width:0;">
+                    <div class="online-dot ${k.online ? 'on' : 'off'}"></div>
+                    <span style="color:var(--g);font-weight:600;flex-shrink:0;">${esc(k.name)}</span>
+                    <span style="color:var(--g4);font-size:0.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(k.key)}</span>
+                    ${k.online ? '<span style="font-size:0.6rem;color:var(--g3);">ONLINE</span>' : ''}
+                    ${otBadge}${expBadge}
+                </div>
+                <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+                    <button class="btn-yellow" onclick="copyKey('${esc(k.key)}')" style="font-size:0.6rem;padding:0.25rem 0.5rem;">COPY</button>
+                    <button class="btn-red" onclick="revokeKey('${esc(k.key)}','${esc(k.name)}')" style="font-size:0.6rem;padding:0.25rem 0.5rem;">REVOKE</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function refreshSessions() {
+        const res  = await fetch('/list_sessions', { headers: hdrs() });
+        const data = await res.json();
+        const online = data.online_users || [];
+        const codes  = data.join_codes  || [];
+        document.getElementById('statOnline').textContent = online.length;
+        document.getElementById('statCodes').textContent  = codes.length;
+        document.getElementById('onlineList').innerHTML = online.length
+            ? online.map(u => `<div class="row">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:0;">
+                    <div class="online-dot on"></div>
+                    <span style="color:var(--g);">${esc(u.name)}</span>
+                    <span style="color:var(--g4);font-size:0.65rem;">${esc(u.key_preview)}</span>
+                </div>
+                <button class="btn-red" onclick="kickUser('${esc(u.key)}','${esc(u.name)}')" style="font-size:0.6rem;padding:0.25rem 0.5rem;flex-shrink:0;">KICK</button>
+              </div>`).join('')
+            : '<div style="color:var(--g4);">No users connected.</div>';
+        document.getElementById('joinCodeList').innerHTML = codes.length
+            ? codes.map(c => {
+                const m = Math.floor(c.expires_in / 60), s = String(c.expires_in % 60).padStart(2,'0');
+                const tag = c.claimed
+                    ? '<span style="font-size:0.6rem;color:var(--yel);">CLAIMED</span>'
+                    : '<span style="font-size:0.6rem;color:var(--g4);">UNCLAIMED</span>';
+                return `<div class="row">
+                    <div style="display:flex;align-items:center;gap:0.6rem;">
+                        <span style="color:var(--yel);font-weight:700;letter-spacing:0.2em;">${esc(c.code)}</span>
+                        ${tag}
+                        <span style="color:var(--g4);font-size:0.65rem;">${m}:${s}</span>
+                    </div>
+                    <button class="btn-red" onclick="revokeCode('${esc(c.code)}')" style="font-size:0.6rem;padding:0.2rem 0.5rem;">✕</button>
+                </div>`;
+              }).join('')
+            : '<div style="color:var(--g4);">No active codes.</div>';
+    }
+
+    async function refreshHistory() {
+        const res  = await fetch('/history', { headers: hdrs() });
+        const data = await res.json();
+        const count   = (data.messages || []).length;
+        const cleared = data.last_cleared ? new Date(data.last_cleared).toLocaleString() : 'Never';
+        document.getElementById('historyInfo').innerHTML =
+            `<div>${count} message${count !== 1 ? 's' : ''} stored</div>
+             <div style="color:var(--g4);margin-top:0.25rem;">Last cleared: ${esc(cleared)}</div>`;
+    }
+
+    async function generateKey() {
+        const name       = document.getElementById('newUsername').value.trim() || 'ghost';
+        const oneTimeUse = document.getElementById('oneTimeUse').checked;
+        const expiresAt  = document.getElementById('expiresAt').value || null;
+        const body = { name, one_time_use: oneTimeUse, expires_at: expiresAt };
+        const res  = await fetch('/generate_key', { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
+        if (!res.ok) { toast('Failed to generate key', 'var(--red)'); return; }
+        const data = await res.json();
+        document.getElementById('newKeyResult').innerHTML =
+            `<div style="color:var(--g4);margin-bottom:0.2rem;">USER: <span style="color:var(--yel);">${esc(data.name)}</span></div>` +
+            `<div style="color:var(--g4);">KEY: <span style="color:var(--g);font-size:0.65rem;">${esc(data.key)}</span></div>`;
+        document.getElementById('newUsername').value = '';
+        document.getElementById('oneTimeUse').checked = false;
+        document.getElementById('expiresAt').value = '';
+        toast(`Key created for ${data.name}`);
+        await refreshKeys();
+    }
+
+    async function kickUser(key, name) {
+        if (!confirm(`Kick "${name}" from the relay?`)) return;
+        const res = await fetch(`/kick/${encodeURIComponent(key)}`, { method: 'POST', headers: hdrs() });
+        if (res.ok) { toast(`Kicked: ${name}`, 'var(--red)'); await refreshAll(); }
+        else toast('Kick failed', 'var(--red)');
+    }
+
+    async function revokeKey(key, name) {
+        if (!confirm(`Revoke key for "${name}"? This disconnects them immediately.`)) return;
+        const res = await fetch(`/revoke_key/${encodeURIComponent(key)}`, { method: 'DELETE', headers: hdrs() });
+        if (res.ok) { toast(`Key revoked: ${name}`, 'var(--red)'); await refreshAll(); }
+        else toast('Revoke failed', 'var(--red)');
+    }
+
+    function copyKey(key) {
+        navigator.clipboard.writeText(key).then(() => toast('Key copied to clipboard'));
+    }
+
+    async function createJoinCode() {
+        const res  = await fetch('/get_join_code');
+        const data = await res.json();
+        toast(`Code created: ${data.join_code}`);
+        await refreshSessions();
+    }
+
+    async function revokeCode(code) {
+        const res = await fetch(`/revoke_join_code/${encodeURIComponent(code)}`, { method: 'DELETE', headers: hdrs() });
+        if (res.ok) { toast(`Code revoked: ${code}`, 'var(--red)'); await refreshSessions(); }
+    }
+
+    async function clearHistory() {
+        if (!confirm('Clear all chat history? This cannot be undone.')) return;
+        const res = await fetch('/clear_history', { method: 'DELETE', headers: hdrs() });
+        if (res.ok) { toast('History cleared', 'var(--yel)'); await refreshHistory(); }
+    }
+</script>
+</body>
+</html>

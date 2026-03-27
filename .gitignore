@@ -1,0 +1,13 @@
+# Environment — contains secrets, never commit
+.env
+
+# Runtime data — API keys, chat history, etc.
+private/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
